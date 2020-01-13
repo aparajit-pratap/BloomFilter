@@ -1,7 +1,7 @@
 # BloomFilter
 Bloom filter to check for words in a dictionary.
 
-# Output
+# Output (for Main.cs example)
 Bloom filter stats:<br />
 hash count: 18<br />
 bit size: 9000000<br />
