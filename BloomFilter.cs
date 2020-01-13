@@ -1,49 +1,62 @@
 using System;
 using System.Collections;
-using System.Security.Cryptography;
 using System.Text;
-public class BloomFilter
+public class BloomFilter<T>
 {
     private int arraySize;
     private int hashCount;
 
-    private readonly int setSize = 340000;
+    // number of words in wordlist.txt (dictionary)
+    private readonly int setSize;
     private BitArray bitmap;
 
-    private MD5 hashAlgorithm;
+    private ILogger logger;
     
-    public BloomFilter(int size, int numHashes)
+    public BloomFilter(int setSize, int size, int numHashes, ILogger logger = null)
     {
+        this.setSize = setSize;
         arraySize = size;
         hashCount = numHashes;
 
         bitmap = new BitArray(arraySize);
-        hashAlgorithm = MD5.Create();
+
+        this.logger = logger;
+        if(this.logger != null)
+        {
+            this.logger.WriteToLog($"hash count: {hashCount}");
+            this.logger.WriteToLog($"bit size: {arraySize}");
+            this.logger.WriteToLog($"set size: {setSize}");
+        }
+        
     }
 
-    public BloomFilter(int size)
+    public BloomFilter(int setSize, int size, ILogger logger = null)
     {
+        this.setSize = setSize;
         arraySize = size;
         hashCount = OptimalNumberOfHashes();
-        Console.WriteLine("hash count: {0}", hashCount);
+        
 
         bitmap = new BitArray(arraySize);
-        hashAlgorithm = MD5.Create();
 
-        Console.WriteLine("bit size: {0}", arraySize);
-        Console.WriteLine("set size: {0}", setSize);
+        this.logger = logger;
+        if(this.logger != null)
+        {
+            this.logger.WriteToLog($"hash count: {hashCount}");
+            this.logger.WriteToLog($"bit size: {arraySize}");
+            this.logger.WriteToLog($"set size: {setSize}");
+        }
     }
 
-    public void Add(string word)
+    /// <summary>
+    /// Adds a given item to Bloom filter.
+    /// </summary>
+    /// <returns></returns>
+    public void Add(T item)
     {
-        if(string.IsNullOrEmpty(word)) return;
+        if(item == null) return;
 
-        //var bytes = Encoding.UTF8.GetBytes(word);
-        // var bytes = BitConverter.GetBytes(item.GetHashCode());
-        /* var md5Hash = hashAlgorithm.ComputeHash(bytes);
-        var bitArray = new BitArray(md5Hash);
-        int len = arraySize/hashCount; */
-        var rand = new Random(word.GetHashCode());
+        var rand = new Random(item.GetHashCode());
         for(int i=0; i < hashCount; i++)
         {
             var idx = rand.Next(arraySize);
@@ -51,9 +64,18 @@ public class BloomFilter
         }
     }
 
-    public bool Contains(string word)
+    /// <summary>
+    /// Checks if a given item exists in the Bloom filter.
+    /// </summary>
+    /// <returns>True if item probably exists, False if it does not exist.</returns>
+    public bool Contains(T item)
     {
-        var rand = new Random(word.GetHashCode());
+        if(bitmap == null) 
+        {
+            this.logger.WriteToLog("Bloom filter is uninitialized.");
+            return false;
+        }
+        var rand = new Random(item.GetHashCode());
         for(int i=0; i < hashCount; i++)
         {
             var idx = rand.Next(arraySize);
@@ -65,15 +87,31 @@ public class BloomFilter
         return true;
     }
 
-        /// <summary>
-        /// Calculates the optimal number of hashes based on bloom filter
-        /// bit size and set size.
-        /// </summary>
-        /// <param name="bitSize">Size of the bloom filter in bits (m)</param>
-        /// <param name="setSize">Size of the set (n)</param>
-        /// <returns>The optimal number of hashes</returns>
-        private int OptimalNumberOfHashes()
+    /// <summary>
+    /// Method for testing purposes to log bitmap as binary.
+    /// Needs ILogger supplied to Bloom filter to work.
+    /// </summary>
+    /// <returns></returns>
+    public void PrintBitmap()
+    {
+        if(logger == null) return;
+
+        StringBuilder sb = new StringBuilder(arraySize);
+        foreach(var bit in bitmap)
         {
-            return (int)Math.Ceiling((arraySize / setSize) * Math.Log(2.0));
+            sb.Append(Convert.ToString((bool)bit ? 1 : 0));
         }
+        logger.WriteToLog(sb.ToString());
+    }
+
+    /// <summary>
+    /// Calculates the optimal number of hashes based on bloom filter
+    /// bit size and set size.
+    /// Reference https://hur.st/bloomfilter/.
+    /// </summary>
+    /// <returns>The optimal number of hashes</returns>
+    private int OptimalNumberOfHashes()
+    {
+        return (int)Math.Round((arraySize / setSize) * Math.Log(2.0));
+    }
 }
